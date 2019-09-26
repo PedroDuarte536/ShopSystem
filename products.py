@@ -5,10 +5,11 @@
 NUM_WORDS_PRODUCT_NAME = 5
 
 class Product:
-    def __init__ (self, name, price, unit="uni"):
+    def __init__ (self, name, price, iva=23, unit="uni"):
         self.name = str(name)
         self.unit = unit
         self.price = price
+        self.iva = iva
 
     def get_name (self):
         return self.name
@@ -21,6 +22,12 @@ class Product:
 
     def set_price (self, price):
         self.price = price
+
+    def get_iva (self):
+        return self.iva
+
+    def set_iva (self, iva):
+        self.iva = iva
 
     # Rates results according to relevance
     # If word starts with query, rating is position of
@@ -42,7 +49,8 @@ class Product:
         return -1
 
     def to_dict (self):
-        return {"name":self.get_name(), "price":self.get_price(), "unit":self.get_unit()}
+        return {"name":self.get_name(), "price":self.get_price(),
+                "iva":self.get_iva(), "unit":self.get_unit()}
 
 
 class ProductManager:
@@ -58,10 +66,10 @@ class ProductManager:
     def get_all (self):
         return self.products
 
-    def new_product (self, name, price, reference, unit="uni", groups=[0]):
+    def new_product (self, name, price, reference, iva=23, unit="uni"):
         if reference:
             if reference not in self.products:
-                self.products[reference] = Product(name, price)
+                self.products[reference] = Product(name, price, iva, unit)
                 return True
             else:
                 return False
@@ -110,7 +118,7 @@ class ProductManager:
     def from_dict (self, product_list):
         for product in product_list:
             self.new_product(product["name"], product["price"], product["reference"],
-                             product["unit"])
+                             product["iva"], product["unit"])
 
 class ProductGroup:
     def __init__ (self, name, products=[]):
@@ -153,7 +161,7 @@ class ProductGroupManager:
         self.groups = dict()
 
     def next_id (self):
-        max_id = max(self.orders.keys())
+        max_id = max(self.groups.keys())
         return max_id+1
 
     def new_group (self, name):

@@ -1,4 +1,5 @@
 from products import Product
+
 class CheckOutDesk:
     def __init__ (self, warehouse=-1):
         self.shop = shop_id
@@ -12,15 +13,22 @@ class Shop:
 
 
 class ProductOrder:
-    def __init__ (self, product, amount=0):
+    def __init__ (self, product, amount=0, discount=0):
         self.product = product
         self.amount = amount
+        self.discount = discount
 
     def get_product (self):
         return self.product
 
     def get_amount (self):
         return self.amount
+
+    def set_discount (self, discount):
+        self.discount = discount
+
+    def get_discount (self):
+        return self.discount
 
     def increase_amount (self, amount):
         self.amount += amount
@@ -32,7 +40,12 @@ class ProductOrder:
         return False
 
     def total_price (self):
-        return self.product.price*self.amount
+        total = self.product.price*self.amount*(1-self.get_discount()/100)
+        return float("{0:.2f}".format(total))
+
+    def final_price (self):
+        total = (1+self.get_product().get_iva()/100)*self.total_price()
+        return float("{0:.2f}".format(total))
 
     def to_dict (self):
         if self.get_amount() > 0:
@@ -56,12 +69,12 @@ class Order:
     def get_products (self):
         return self.products
     
-    def add_product (self, reference, product, amount):
+    def add_product (self, reference, product, amount, discount):
         if reference in self.products:
             self.products[reference].increase_amount(amount)
 
         else:
-            self.products[reference] = ProductOrder(product, amount)
+            self.products[reference] = ProductOrder(product, amount, discount)
 
     def remove_product (self, reference):
         if self.products.pop(reference, False) == False:
@@ -73,7 +86,14 @@ class Order:
         for prod in self.products.values():
             total += prod.total_price()
 
-        return total
+        return float("{0:.2f}".format(total))
+
+    def final_price (self):
+        total = 0
+        for prod in self.products.values():
+            total += prod.total_price()*(1+prod.get_product().get_iva()/100)
+
+        return float("{0:.2f}".format(total))
 
     def to_dict (self):
         product_list = []
@@ -100,6 +120,12 @@ class OrderManager:
     def add_order (self, order):
         self.orders[self.next_id()] = order
 
+    def get_all (self):
+        return self.orders
+
+    def get_by_id (self, ident):
+        return self.orders[ident]
+    
     def get_by_client (self, client):
         results = []
 
@@ -126,7 +152,7 @@ class OrderManager:
         for order in orders:
             products_dict = dict()
             for product in order["products"]:
-                product_order = ProductOrder(Product(product["name"], product["price"], product["unit"]), product["amount"])
+                product_order = ProductOrder(Product(product["name"], product["price"], product["iva"], product["unit"]), product["amount"])
                 products_dict[product["reference"]] = product_order
                 
             self.orders[order["id"]] = Order(products_dict, order["client"])

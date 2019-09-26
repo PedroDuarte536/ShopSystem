@@ -1,0 +1,110 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        <style>               
+            div#receipt {
+                width: 100%;
+                height: 100%;
+                font-size: 15px;
+            }
+            
+            div.row {
+                border-bottom: 1px solid lightgray;
+                white-space: nowrap;
+                padding: 3mm;
+            }
+            
+            div.row:first-child {
+                border-bottom: 2px solid black;
+            }
+            
+            div.header {
+                font-weight: 700;    
+            }
+            
+            div.data {
+                display: inline-block;
+                width: 10%;
+                margin-right: -4px;
+                white-space: normal;
+            }
+            
+            div.data:nth-child(2) {
+                width: 30%;
+            }
+            
+            div.contacts {
+                white-space: nowrap;
+                font-size: 17px;
+            }
+            
+            div.contact {
+                width: 50%;
+                display: inline-block;
+            }
+        </style>
+    </head>
+    
+    <body>
+        <div id="receipt">
+            <div class="contacts"> 
+                <div id="owner" class="contact">
+                    <p>
+                        <b>{{owner.get_name()}}</b>
+                        <br>Contribuinte Nº: {{owner.get_contacts().get_nif()}}
+                    </p>
+                    <p style="width:120px">
+                        {{owner.get_contacts().get_adress()}}
+                        <br>Telef. {{owner.get_contacts().get_mobile()}}
+                    </p>
+                </div>
+                {% if client %}
+                <div id="client" class="contact">
+                    <p>
+                        <b>{{client.get_name()}}</b>
+                        <br>Contribuinte Nº: {{client.get_contacts().get_nif()}}
+                    </p>
+                    <p style="width:120px">
+                        {{client.get_contacts().get_adress()}}
+                        <br>Telef. {{client.get_contacts().get_mobile()}}
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+            <div id="products">
+                <div class="row">
+                    <div class="data header">Ref.</div>
+                    <div class="data header">Product</div>
+                    <div class="data header">Amount</div>
+                    <div class="data header">Unit</div>
+                    <div class="data header">Unit Price</div>
+                    <div class="data header">Discount</div>
+                    <div class="data header">IVA</div>
+                    <div class="data header">Price</div>
+                </div>
+                {% for reference, product in order.get_products().items() %}
+                <div class="row">
+                    <div class="data">{{reference}}</div>
+                    <div class="data">{{product.get_product().get_name()}}</div>
+                    <div class="data">{{(product.get_amount()|string)}}</div>
+                    <div class="data">{{product.get_product().get_unit()}}</div>
+                    <div class="data">{{'%0.2f'| format(product.get_product().get_price()|float)}}</div>
+                    <div class="data">{{product.get_discount()}}</div>
+                    <div class="data">{{product.get_product().get_iva()}}</div>
+                    <div class="data">{{'%0.2f'| format(product.final_price()|float)}}</div>
+                </div>
+                {% endfor %}
+                <div class="row">
+                    <div class="data header">Total</div>
+                    <div class="data"></div>
+                    <div class="data"></div>
+                    <div class="data"></div>
+                    <div class="data"></div>
+                    <div class="data"></div>
+                    <div class="data"></div>
+                    <div class="data">{{order.final_price()}}</div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

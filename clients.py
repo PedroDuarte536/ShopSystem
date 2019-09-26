@@ -1,26 +1,29 @@
+from contacts import Contacts
+
 # Only used for rating searches in Client.search_by_query
 # It will be summed to the position of query in word
 # in case it is not in the begginning so that result
 # appears later - DOES NOT ENFORCE ANYTHING
 NUM_WORDS_CLIENT_NAME = 5
 
-class Client:
-    def __init__ (self, name, nif, mobile):
+class Owner:
+    def __init__ (self, name, contacts=Contacts()):
         self.name = name
-        self.nif = nif
-        self.mobile = mobile
+        self.contacts = contacts
 
     def get_name (self):
         return self.name
 
-    def get_nif (self):
-        return self.nif
+    def get_contacts (self):
+        return self.contacts
 
-    def get_mobile (self):
-        return self.mobile
+    def to_dict (self):
+        return {"name": self.name, "contacts":self.get_contacts().to_dict()}
 
+
+class Client(Owner):
     def search_by_query (self, query):
-        if str(self.nif).startswith(query) or str(self.mobile).startswith(query):
+        if self.get_contacts().search_by_query():
             return 0
         
         name_words = self.name.upper().split()              # Every word in the client name
@@ -34,9 +37,6 @@ class Client:
             return name_query_pos + NUM_WORDS_CLIENT_NAME  # of a word
 
         return -1
-
-    def to_dict (self):
-        return {"name": self.name, "nif":self.nif, "mobile":self.mobile}
 
 
 class ClientManager:
@@ -52,8 +52,8 @@ class ClientManager:
             return max_id+1
         return 1
 
-    def new_client (self, name, nif, mobile):
-        self.clients[self.next_id()] = Client(name, nif, mobile)
+    def new_client (self, name):
+        self.clients[self.next_id()] = Client(name)
 
     def get_by_id (self, ident):
         return self.clients[ident]
@@ -95,5 +95,7 @@ class ClientManager:
 
     def from_dict (self, client_list):
         for client in client_list:
-            self.clients[client["id"]] = Client(client["name"], client["nif"], client["mobile"])
+            contacts = Contacts(client["contacts"]["adress"], client["contacts"]["mobile"],
+                                client["contacts"]["nif"], client["contacts"]["email"])
+            self.clients[client["id"]] = Client(client["name"], contacts)
             

@@ -1,16 +1,20 @@
 from products import Product, ProductManager, ProductGroup, ProductGroupManager
 from warehouses import Warehouse, WarehouseManager
 from shop import Order, OrderManager
-from clients import Client, ClientManager
+from clients import Owner, Client, ClientManager
+from contacts import Contacts
 
 from interface import Interface
 
 import json
+from jinja2 import Environment, FileSystemLoader
+import pdfkit
 
 class CreateOrder(Interface):
-    def __init__ (self, products, clients, order=False):
+    def __init__ (self, products, clients, owner, order=False):
         self.products = products
         self.clients = clients
+        self.owner = owner
 
         if order == False:
             self.order = Order()
@@ -28,8 +32,12 @@ class CreateOrder(Interface):
         product_amount = 0
         while product_amount <= 0:
             product_amount = int(input("Amount: "))
+
+        product_discount = -1
+        while product_discount < 0 or product_discount > 100:
+            product_discount = int(input("Discount: "))
             
-        self.order.add_product(product_reference, self.products[product_reference], product_amount)
+        self.order.add_product(product_reference, self.products[product_reference], product_amount, product_discount)
 
     def remove_product (self, command=False):
         if command:
@@ -58,9 +66,34 @@ class CreateOrder(Interface):
             client = int(input("Which Client? "))
             
         self.order.set_client(client)
+
+    def generate_receipts (self, command=False):
+        if command:
+            return "Generate Receipt"
+
+        client = self.order.get_client()
+        if client != 0:
+            client = self.clients[client]
+        else:
+            client = False
+            
+        env = Environment(loader=FileSystemLoader('Templates'))
+        template = env.get_template('jinja_receipt.html')
+        output_from_parsed_template = template.render(order=self.order, owner=self.owner, client=client)
+
+        path_wkthmltopdf = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
+        config = pdfkit.configuration(wkhtmltopdf=path_wkthmltopdf)
+        pdfkit.from_string(output_from_parsed_template, "out.pdf", configuration=config, options={'quiet':''})
+
+    def print_receipt (self, command=False):
+        if command:
+            return "Print Receipt"
+        
+        win32api.ShellExecute(0, "print", "out.pdf", None,".", 0)
             
     def behaviour (self):
-        return [self.add_product, self.remove_product, self.show_order, self.set_client]
+        return [self.add_product, self.remove_product, self.show_order, self.set_client,
+                self.generate_receipts, self.print_receipt]
 
     def run (self):
         return super().run(self.behaviour())
@@ -73,6 +106,7 @@ class Inventory(Interface):
         self.order_manager = OrderManager()
         self.client_manager = ClientManager()
         self.product_group_manager = ProductGroupManager()
+        self.owner = Owner("Yo Corp.", Contacts("Tomar", 123456789, 987654321, "geral@yo.corp.com"))
 
         prods_list = self.product_manager.get_all().keys()
         self.product_group_manager.from_dict([{"id":0,"name":"ALL PRODUCTS", "products":prods_list},{"id":1,"name":"OLD PRODUCTS", "products":[]}])
@@ -83,7 +117,8 @@ class Inventory(Interface):
         if command:
             return "Save"
 
-        final_dict = dict() 
+        final_dict = dict()
+        final_dict["owner"] = self.owner.to_dict()
         final_dict["products"] = self.product_manager.to_dict()["products"]
         final_dict["warehouses"] = self.warehouse_manager.to_dict()["warehouses"]
         final_dict["orders"] = self.order_manager.to_dict()["orders"]
@@ -100,7 +135,10 @@ class Inventory(Interface):
         with open("data.json", "r") as file:
             data = json.load(file)
 
-        
+        contact_data = data["owner"]["contacts"]
+        contacts = Contacts(contact_data["adress"], contact_data["mobile"],
+                            contact_data["nif"], contact_data["email"])
+        self.owner = Owner(data["owner"]["name"], contacts)        
         self.product_manager.from_dict(data["products"])
         self.warehouse_manager.from_dict(data["warehouses"])
         self.order_manager.from_dict(data["orders"])
@@ -197,7 +235,27 @@ class Inventory(Interface):
             return "List Clients"
 
         for ident, client in self.client_manager.get_all().items():
-            print("\t"+str(ident)+" -> "+client.get_name()+" :\t"+str(client.get_nif())+"\t"+str(client.get_mobile()))
+            print("\t"+str(ident)+" -> "+client.get_name()+" :\t"+str(client.get_contacts().get_nif())+"\t"+str(client.get_contacts().get_mobile()))
+
+    def list_orders (self, command=False):
+        if command:
+            return "List Orders"
+
+        for ident, order in self.order_manager.get_all().items():
+            print("\t"+str(ident)+" -> "+str(order.get_client())+": "+str(order.total_price()))
+
+    def open_order (self, command=False):
+        if command:
+            return "Open Order"
+
+        self.list_orders()
+
+        order = 0
+        while order not in self.order_manager.get_all().keys():
+            order = int(input("Which One? "))
+
+        order = CreateOrder(self.product_manager.get_all(), self.client_manager.get_all(), self.owner, self.order_manager.get_by_id(order))
+        order.run()
         
     def create_order (self, command=False):
         if command:
@@ -206,7 +264,7 @@ class Inventory(Interface):
         self.list_products()
         print("Select the products and then enter 'quit' when you've finished")
 
-        order = CreateOrder(self.product_manager.get_all(), self.client_manager.get_all())
+        order = CreateOrder(self.product_manager.get_all(), self.client_manager.get_all(), self.owner)
         order.run()
         self.order_manager.add_order(order.order)
 
@@ -277,8 +335,14 @@ class Inventory(Interface):
     def create_product (self, command=False):
         if command:
             return "Create Product"
-            
-        if self.product_manager.new_product(input("Product Name:"), int(input("Product Price:")), input("Product Reference:")):
+
+        name = input("Product Name:")
+        price = float(input("Product Price:"))
+        iva = int(input("Product IVA:"))
+        reference = input("Product Reference:")
+        
+        if self.product_manager.new_product(name, float("{0:.2f}".format(price)), reference, iva):
+            self.product_group_manager.get_by_id(0).add_product(reference)
             print("Product created successfully!")
         else:
             print("Error while creating the product...")
@@ -296,7 +360,7 @@ class Inventory(Interface):
 
         for ref in group.get_products():
             product = self.product_manager.get_by_reference(ref)
-            print("\t"+ref+" -> "+product.get_name()+" :\t"+str(product.get_price())+"$")
+            print("\t"+ref+" -> "+product.get_name()+" :\t"+str(product.get_price())+"$ ("+ str(product.get_iva()) +"% IVA)")
 
     def get_product_by_reference (self, command=False):
         if command:
@@ -323,7 +387,7 @@ class Inventory(Interface):
                 self.take_stock_from_warehouse, self.check_product_stock, self.create_order,
                 self.create_client, self.create_product_group, self.add_to_group, self.list_groups,
                 self.list_clients, self.discontinue_product, self.make_current, self.search_client,
-                self.get_order_by_client, self.save, self.load]
+                self.get_order_by_client, self.list_orders, self.open_order, self.save, self.load]
 
     def run(self):
         super().run(self.behaviour())
