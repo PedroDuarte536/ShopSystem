@@ -1,2 +1,3 @@
 # ShopSystem
-Python module to easily implement shop management software.
+Shop management system
+Run interface.py
