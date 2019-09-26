@@ -1,3 +1,4 @@
 # ShopSystem
-Shop management system
+Shop management system.
+
 Run interface.py
